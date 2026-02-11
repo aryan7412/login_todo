@@ -1,9 +1,32 @@
-import React from 'react'
+"use client";
 
-const page = () => {
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+export default function Navbar() {
   return (
-    <div>page</div>
-  )
-}
+    <nav className="w-full border-b bg-background">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        
+        {/* Logo / Brand */}
+        <Link
+          href="/"
+          className="text-lg font-semibold tracking-tight"
+        >
+          TODO LOGIN
+        </Link>
 
-export default page
+        {/* Right Side Buttons */}
+        <div className="flex items-center gap-3">
+          <Link href="/login">
+            <Button variant="ghost">Login</Button>
+          </Link>
+
+          <Link href="/register">
+            <Button>Register</Button>
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
