@@ -51,9 +51,9 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
             <Button className="w-full" disabled={loading}>
-  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-  Login
-</Button>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Login
+            </Button>
 
           </form>
         </CardContent>

@@ -1,44 +1,78 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { api } from "@/lib/api";
 import { Todo } from "@/types/todo";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Loader2, Trash2, Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+
+import TodoForm from "@/components/Todos/TodoForm";
+import TodoFilters from "@/components/Todos/TodoFilters";
+import TodoList from "@/components/Todos/TodoList";
+import UserMenu from "@/components/User/UserMenu";
 
 export default function DashboardPage() {
+  const router = useRouter();
+
+  // ---------------- STATE ----------------
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [user, setUser] = useState<any>(null);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  const [loading, setLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] =
+    useState<"all" | "completed" | "pending">("all");
+
+  // ---------------- FETCH ----------------
   const fetchTodos = async () => {
     const data = await api("/todos");
     setTodos(data);
   };
 
+  const fetchProfile = async () => {
+    const data = await api("/user/profile");
+    setUser(data);
+  };
+
   useEffect(() => {
     fetchTodos();
+    fetchProfile();
   }, []);
 
-  // -------- CREATE --------
+  // ---------------- LOGOUT ----------------
+  const logout = async () => {
+    setLogoutLoading(true);
+    try {
+      await api("/auth/logout", { method: "POST" });
+      router.replace("/");
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
+
+  // ---------------- CREATE ----------------
   const addTodo = async () => {
     if (!title.trim()) return;
 
     setLoading(true);
+
     await api("/todos", {
       method: "POST",
       body: JSON.stringify({
@@ -54,7 +88,7 @@ export default function DashboardPage() {
     fetchTodos();
   };
 
-  // -------- UPDATE --------
+  // ---------------- UPDATE ----------------
   const updateTodo = async (todo: Todo) => {
     setActionLoadingId(todo.id);
 
@@ -72,23 +106,23 @@ export default function DashboardPage() {
     fetchTodos();
   };
 
-  // -------- TOGGLE --------
+  // ---------------- TOGGLE ----------------
   const toggleComplete = async (todo: Todo) => {
-  setActionLoadingId(todo.id);
-  try {
-    await api(`/todos/${todo.id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        completed: !todo.completed,
-      }),
-    });
-    fetchTodos();
-  } finally {
-    setActionLoadingId(null);
-  }
-};
+    setActionLoadingId(todo.id);
+    try {
+      await api(`/todos/${todo.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          completed: !todo.completed,
+        }),
+      });
+      fetchTodos();
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
-  // -------- DELETE --------
+  // ---------------- DELETE ----------------
   const deleteTodo = async (id: string) => {
     setActionLoadingId(id);
     await api(`/todos/${id}`, { method: "DELETE" });
@@ -96,136 +130,74 @@ export default function DashboardPage() {
     fetchTodos();
   };
 
+  // ---------------- FILTER ----------------
+  const filteredTodos = todos
+    .filter((todo) =>
+      (todo.title + todo.description)
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    )
+    .filter((todo) => {
+      if (filter === "completed") return todo.completed;
+      if (filter === "pending") return !todo.completed;
+      return true;
+    });
+
+  // ---------------- UI ----------------
   return (
     <div className="max-w-2xl mx-auto p-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Todos</CardTitle>
-        </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* CREATE */}
-          <div className="space-y-2">
-            <Input
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <Textarea
-              placeholder="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <Button onClick={addTodo} disabled={loading}>
-              {loading && (
+          <div className="flex items-center gap-2">
+            <UserMenu user={user} />
+
+            <Button
+              variant="outline"
+              onClick={logout}
+              disabled={logoutLoading}
+            >
+              {logoutLoading && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Add Todo
+              Logout
             </Button>
           </div>
+        </CardHeader>
 
-          {/* LIST */}
-          <ul className="space-y-4">
-            {todos.map((todo) => (
-              <li key={todo.id} className="border rounded-md p-4">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex gap-4 flex-1">
-                    <Switch
-                      checked={todo.completed}
-                      onCheckedChange={() => toggleComplete(todo)}
-                      disabled={actionLoadingId === todo.id}
-                    />
+        {/* SEARCH + FILTER */}
+        <div className="px-6 pb-2">
+          <TodoFilters
+            search={search}
+            setSearch={setSearch}
+            filter={filter}
+            setFilter={setFilter}
+          />
+        </div>
 
-                    <div className="flex-1">
-                      {editingId === todo.id ? (
-                        <>
-                          <Input
-                            value={todo.title}
-                            onChange={(e) =>
-                              setTodos((prev) =>
-                                prev.map((t) =>
-                                  t.id === todo.id
-                                    ? { ...t, title: e.target.value }
-                                    : t
-                                )
-                              )
-                            }
-                          />
-                          <Textarea
-                            className="mt-2"
-                            value={todo.description}
-                            onChange={(e) =>
-                              setTodos((prev) =>
-                                prev.map((t) =>
-                                  t.id === todo.id
-                                    ? {
-                                        ...t,
-                                        description: e.target.value,
-                                      }
-                                    : t
-                                )
-                              )
-                            }
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <p
-                            className={`font-medium ${
-                              todo.completed &&
-                              "line-through text-muted-foreground"
-                            }`}
-                          >
-                            {todo.title}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {todo.description}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
+        <CardContent className="space-y-6">
+          {/* CREATE TODO */}
+          <TodoForm
+            title={title}
+            description={description}
+            loading={loading}
+            setTitle={setTitle}
+            setDescription={setDescription}
+            onSubmit={addTodo}
+          />
 
-                  {/* ACTIONS */}
-                  <div className="flex gap-2">
-                    {editingId === todo.id ? (
-                      <Button
-                        size="sm"
-                        onClick={() => updateTodo(todo)}
-                        disabled={actionLoadingId === todo.id}
-                      >
-                        {actionLoadingId === todo.id && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        Save
-                      </Button>
-                    ) : (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setEditingId(todo.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => deleteTodo(todo.id)}
-                      disabled={actionLoadingId === todo.id}
-                    >
-                      {actionLoadingId === todo.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {/* TODO LIST */}
+          <TodoList
+            todos={filteredTodos}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            actionLoadingId={actionLoadingId}
+            updateTodo={updateTodo}
+            toggleComplete={toggleComplete}
+            deleteTodo={deleteTodo}
+            setTodos={setTodos}
+          />
         </CardContent>
       </Card>
     </div>
